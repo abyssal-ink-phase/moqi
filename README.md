@@ -1,5 +1,5 @@
 # moqi
-moqi— an experimental 3D asymmetric chess variant with fog, hazards, and an expandable board. A question, not an answer — playable sandbox, basic AI, room to grow.
+moqi— an experimental 3D , hazards, and an expandable board. A question, not an answer — playable sandbox, basic AI, room to grow.
 moqi(墨棋 / Ink Chess) — a humble description:
 
 moqi("ink chess," 墨棋) is an experimental prototype of a 3D asymmetric chess-like environment. It asks a simple but open-ended question: What happens when you take traditional board games — with their perfect information, symmetric rules, and flat grids — and replace them with a 3D space, fog of war, asymmetric unit types, an expandable map, and a living hazard (the "Ink Chess" itself) that drifts, grows, and devours pieces?
