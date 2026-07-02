@@ -11,7 +11,6 @@
 
 ## Screenshot
 
-<!-- Replace with actual screenshot or GIF -->
 ![Gameplay Preview](screenshots/preview.png)
 
 ---
