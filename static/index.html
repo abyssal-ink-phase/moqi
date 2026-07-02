@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>墨棋 · 烬寂推演</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
+    canvas { display: block; }
+
+    /* 配置界面 */
+    #setup-player-count, #setup-piece-config {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #0a0a12; color: white; text-align: center; padding: 50px 20px;
+      box-sizing: border-box; overflow-y: auto; z-index: 100;
+    }
+    #setup-player-count h1, #setup-piece-config h1 { font-size: 48px; margin-top: 20px; }
+    #setup-player-count button, #setup-piece-config button {
+      font-size: 24px; padding: 15px 40px; margin: 10px; background: #335577;
+      color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+    }
+    #setup-player-count button:hover, #setup-piece-config button:hover { background: #447799; }
+    .config-player {
+      background: #1a2a3a; border-radius: 8px; padding: 15px; margin: 15px auto;
+      max-width: 750px; display: flex; flex-wrap: wrap; justify-content: center;
+      align-items: center; gap: 10px;
+    }
+    .config-player h3 { width: 100%; color: #ffdd44; margin: 0 0 10px 0; }
+    .config-player label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #ccc; }
+    .config-player input[type="number"] {
+      width: 44px; background: #222; color: white; border: 1px solid #555;
+      text-align: center; font-size: 15px; padding: 3px; border-radius: 4px;
+    }
+    .config-player select {
+      background: #222; color: white; border: 1px solid #555;
+      font-size: 13px; padding: 3px; border-radius: 4px;
+    }
+    .config-total { font-size: 18px; font-weight: bold; margin-left: 10px; }
+    .config-total.ok { color: #44ff88; }
+    .config-total.over { color: #ff4444; }
+    .config-total.under { color: #ffaa44; }
+    #start-btn { background: #44aa88; font-size: 28px; padding: 18px 60px; }
+    #start-btn:hover { background: #55cc99; }
+
+    #info, #status, #log, #help, #coord-preview {
+      position: absolute; color: white; background: rgba(0,0,0,0.7); padding: 8px 12px;
+      border-radius: 4px; pointer-events: none; z-index: 10; display: none;
+    }
+    #info { top: 10px; left: 10px; font-size: 14px; }
+    #status { top: 46px; left: 10px; color: #ff0; font-size: 13px; }
+    #log { bottom: 68px; left: 10px; width: 380px; max-height: 185px; font-size: 12px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4; }
+    #help { bottom: 38px; left: 10px; color: #bbb; font-size: 11px; }
+    #coord-preview { top: 92px; right: 18px; color: #ff0; font-size: 13px; }
+
+    #victory-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; justify-content: center;
+      align-items: center; z-index: 200; flex-direction: column;
+    }
+    #victory-overlay.active { display: flex; }
+    #victory-box {
+      background: #1a2a3a; padding: 40px 60px; border-radius: 16px;
+      text-align: center; border: 2px solid #ffdd44;
+    }
+    #victory-box h1 { color: #ffdd44; font-size: 48px; margin: 0 0 20px 0; }
+    #victory-box p { color: white; font-size: 24px; margin: 10px 0 30px 0; }
+    #victory-box button { font-size: 20px; padding: 12px 30px; margin: 0 15px; border: none; border-radius: 8px; cursor: pointer; }
+    #btn-restart { background: #44aa88; color: white; }
+    #btn-restart:hover { background: #55cc99; }
+    #btn-end { background: #884444; color: white; }
+    #btn-end:hover { background: #aa5555; }
+  </style>
+</head>
+<body>
+
+<!-- 配置界面 -->
+<div id="setup-player-count">
+  <h1>墨棋 · 烬寂推演</h1>
+  <h2 style="margin-top:40px;">选择玩家数量</h2>
+  <div style="margin-top:30px; display:flex; flex-wrap:wrap; justify-content:center;">
+    <button onclick="setPlayerCount(2)">2人</button>
+    <button onclick="setPlayerCount(3)">3人</button>
+    <button onclick="setPlayerCount(4)">4人</button>
+    <button onclick="setPlayerCount(5)">5人</button>
+    <button onclick="setPlayerCount(6)">6人</button>
+    <button onclick="setPlayerCount(7)">7人</button>
+    <button onclick="setPlayerCount(8)">8人</button>
+    <button onclick="setPlayerCount(9)">9人</button>
+    <button onclick="setPlayerCount(10)">10人</button>
+  </div>
+</div>
+
+<div id="setup-piece-config" style="display:none;">
+  <h1>配置棋子</h1>
+  <p style="color:#aaa; margin-top:-10px;">每位玩家分配 26 个单位（总数必须等于 26）</p>
+  <div id="config-players-list"></div>
+  <div style="margin-top:40px;">
+    <button id="start-btn" onclick="submitConfig()">开始游戏</button>
+  </div>
+</div>
+
+<!-- 3D 游戏界面 -->
+<div id="game-container" style="display:none;">
+  <div id="info">墨棋 · 烬寂推演 | 加载中...</div>
+  <div id="status">就绪</div>
+  <div id="coord-preview"></div>
+  <div id="log"></div>
+  <div id="help">🖱️ 点击选子 | ↑↓←→ , . 移动光标 | 空格：确认 | F：布雷 | G：相位跃迁 | T：运载 | H：拓荒 | K：切割 | P：生产 | 1-6：选兵种 | Z：悔棋 | Ctrl+S：存档 | Ctrl+L：读档</div>
+</div>
+
+<!-- 胜利弹窗 -->
+<div id="victory-overlay">
+  <div id="victory-box">
+    <h1>🏆 游戏结束</h1>
+    <p id="victory-message">胜利者：玩家X</p>
+    <div>
+      <button id="btn-restart" onclick="restartGame()">🔄 重新开始</button>
+      <button id="btn-end" onclick="endGame()">🚪 结束游戏</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.133.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.133.0/examples/jsm/"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+  // ---------- 配置状态 ----------
+  let playerCount = 0;
+  let configData = {};
+  let playerTypes = [];
+
+  window.setPlayerCount = function(count) {
+    playerCount = count;
+    document.getElementById('setup-player-count').style.display = 'none';
+    document.getElementById('setup-piece-config').style.display = 'block';
+    renderConfigUI();
+  };
+
+  function renderConfigUI() {
+    const container = document.getElementById('config-players-list');
+    container.innerHTML = '';
+    for (let i = 1; i <= playerCount; i++) {
+      const div = document.createElement('div');
+      div.className = 'config-player';
+      div.innerHTML = `
+        <h3>玩家 ${i}</h3>
+        <label>兵 <input type="number" id="scout_${i}" value="5" min="0" max="26"></label>
+        <label>车 <input type="number" id="rook_${i}" value="4" min="0" max="26"></label>
+        <label>马 <input type="number" id="knight_${i}" value="4" min="0" max="26"></label>
+        <label>炮 <input type="number" id="cannon_${i}" value="4" min="0" max="26"></label>
+        <label>工兵 <input type="number" id="engineer_${i}" value="4" min="0" max="26"></label>
+        <label>种兵 <input type="number" id="seeder_${i}" value="5" min="0" max="26"></label>
+        <label>类型:
+          <select id="type_${i}">
+            <option value="human">人类</option>
+            <option value="ai">AI</option>
+          </select>
+        </label>
+        <span class="config-total" id="total_${i}">26</span>
+      `;
+      container.appendChild(div);
+
+      const inputs = div.querySelectorAll('input[type="number"]');
+      inputs.forEach(inp => {
+        inp.addEventListener('input', () => updateTotal(i));
+        inp.addEventListener('change', () => {
+          let val = parseInt(inp.value) || 0;
+          if (val < 0) inp.value = 0;
+          if (val > 26) inp.value = 26;
+          updateTotal(i);
+        });
+      });
+    }
+    for (let i = 1; i <= playerCount; i++) updateTotal(i);
+  }
+
+  function updateTotal(playerId) {
+    const scout = parseInt(document.getElementById(`scout_${playerId}`).value) || 0;
+    const rook = parseInt(document.getElementById(`rook_${playerId}`).value) || 0;
+    const knight = parseInt(document.getElementById(`knight_${playerId}`).value) || 0;
+    const cannon = parseInt(document.getElementById(`cannon_${playerId}`).value) || 0;
+    const engineer = parseInt(document.getElementById(`engineer_${playerId}`).value) || 0;
+    const seeder = parseInt(document.getElementById(`seeder_${playerId}`).value) || 0;
+    const total = scout + rook + knight + cannon + engineer + seeder;
+    const span = document.getElementById(`total_${playerId}`);
+    span.textContent = total;
+    span.className = 'config-total';
+    if (total === 26) span.classList.add('ok');
+    else if (total > 26) span.classList.add('over');
+    else span.classList.add('under');
+    return total;
+  }
+
+  window.submitConfig = function() {
+    configData = {};
+    playerTypes = [];
+    let valid = true;
+    for (let i = 1; i <= playerCount; i++) {
+      const total = updateTotal(i);
+      if (total !== 26) {
+        alert(`玩家 ${i} 的棋子总数为 ${total}，必须为 26！`);
+        valid = false; break;
+      }
+      configData[i] = {
+        scout: parseInt(document.getElementById(`scout_${i}`).value) || 0,
+        rook: parseInt(document.getElementById(`rook_${i}`).value) || 0,
+        knight: parseInt(document.getElementById(`knight_${i}`).value) || 0,
+        cannon: parseInt(document.getElementById(`cannon_${i}`).value) || 0,
+        engineer: parseInt(document.getElementById(`engineer_${i}`).value) || 0,
+        seeder: parseInt(document.getElementById(`seeder_${i}`).value) || 0,
+      };
+      const type = document.getElementById(`type_${i}`).value;
+      playerTypes.push(type);
+    }
+    if (!valid) return;
+
+    fetch('/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_count: playerCount,
+        config: configData,
+        player_types: playerTypes
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById('setup-piece-config').style.display = 'none';
+        document.getElementById('game-container').style.display = 'block';
+        document.getElementById('info').style.display = 'block';
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('coord-preview').style.display = 'block';
+        document.getElementById('log').style.display = 'block';
+        document.getElementById('help').style.display = 'block';
+        initGame();
+      } else {
+        alert('初始化失败：' + data.message);
+      }
+    })
+    .catch(err => alert('请求失败：' + err));
+  };
+
+  let gameOverHandled = false;
+  window.restartGame = function() {
+    document.getElementById('victory-overlay').classList.remove('active');
+    gameOverHandled = false;
+    location.reload();
+  };
+  window.endGame = function() {
+    document.getElementById('victory-overlay').classList.remove('active');
+    gameOverHandled = false;
+    try { window.close(); } catch(e) { alert('请手动关闭此标签页。'); }
+  };
+
+  // ---------- 游戏主体（与之前相同，但保留墨棋脉冲和工业灰） ----------
+  function initGame() {
+    window.gameInitialized = true;
+
+    const PLAYER_COLORS = [
+      0xff4444, 0x44aaff, 0x44ff44, 0xffaa44, 0xaa44ff,
+      0xff44aa, 0x44ffff, 0xffff44, 0xffffff, 0x888888
+    ];
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111122);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
+    camera.position.set(28, 22, 35);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    const ambient = new THREE.AmbientLight(0x404066);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 30, 10);
+    scene.add(dirLight);
+
+    let dynamicGroup = new THREE.Group();
+    scene.add(dynamicGroup);
+
+    const inkGroup = new THREE.Group();
+    scene.add(inkGroup);
+    inkGroup.visible = true;
+    let inkParticles = null;
+    let inkSphere = null;
+    let currentInkSize = 3;
+    let targetInkSize = 3;
+    let inkPosition = [0,0,0];
+
+    const cursorGeo = new THREE.BoxGeometry(0.64, 0.64, 0.64);
+    const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+    const cursorCube = new THREE.Mesh(cursorGeo, cursorMat);
+    cursorCube.visible = true;
+    scene.add(cursorCube);
+    const cursorLabelDiv = document.createElement('div');
+    cursorLabelDiv.style.color = '#ff0';
+    cursorLabelDiv.style.fontSize = '10px';
+    const cursorLabel = new CSS2DObject(cursorLabelDiv);
+    cursorCube.add(cursorLabel);
+    cursorLabel.position.set(0, 0.87, 0);
+
+    let targetMarker = null;
+    function createTargetMarker(pos) {
+      if (targetMarker) dynamicGroup.remove(targetMarker);
+      const geo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.43 });
+      targetMarker = new THREE.Mesh(geo, mat);
+      targetMarker.position.set(pos[0], pos[1], pos[2]);
+      dynamicGroup.add(targetMarker);
+    }
+    function removeTargetMarker() {
+      if (targetMarker) { dynamicGroup.remove(targetMarker); targetMarker = null; }
+    }
+    window.removeTargetMarker = removeTargetMarker;
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const MINES_COLOR = 0xff3333;
+
+    const logDiv = document.getElementById('log');
+    const statusDiv = document.getElementById('status');
+    function addLog(msg) {
+      logDiv.textContent += msg + '\n';
+      logDiv.scrollTop = logDiv.scrollHeight;
+      const lines = logDiv.textContent.split('\n');
+      if (lines.length > 37) logDiv.textContent = lines.slice(-37).join('\n');
+    }
+    function setStatus(msg) { statusDiv.textContent = msg; }
+
+    let currentPlayer = 1;
+    let selectedPieceId = null;
+    let cursorPos = [0, 0, 0];
+    let latestState = null;
+    let actionMode = 'move';
+    let awaitingConfirm = false;
+    let selectedUnitType = null;
+
+    const UNIT_TYPE_MAP = { '1': 'scout', '2': 'rook', '3': 'knight', '4': 'cannon', '5': 'engineer', '6': 'seeder' };
+    const UNIT_NAME_MAP = { 'scout': '兵', 'rook': '车', 'knight': '马', 'cannon': '炮', 'engineer': '工兵', 'seeder': '种兵' };
+
+    function clearDynamic() {
+      scene.remove(dynamicGroup);
+      dynamicGroup.traverse(child => {
+        if (child.isCSS2DObject && child.element && child.element.parentNode) {
+          child.element.parentNode.removeChild(child.element);
+        }
+      });
+      dynamicGroup = new THREE.Group();
+      scene.add(dynamicGroup);
+      labelRenderer.domElement.innerHTML = '';
+      targetMarker = null;
+    }
+
+    function createPiece(type, pos, owner, pieceId, canAct, rooted) {
+      let geometry;
+      const s = 0.35;
+      switch(type) {
+        case 'core': geometry = new THREE.IcosahedronGeometry(s, 1); break;
+        case 'scout': geometry = new THREE.OctahedronGeometry(s); break;
+        case 'rook': geometry = new THREE.BoxGeometry(s*1.2, s*0.8, s*0.6); break;
+        case 'knight': geometry = new THREE.TorusKnotGeometry(s*0.7, s*0.25, 64, 8); break;
+        case 'cannon': geometry = new THREE.ConeGeometry(s*0.7, s*1.2, 6); break;
+        case 'engineer': geometry = new THREE.TetrahedronGeometry(s); break;
+        case 'seeder': geometry = new THREE.DodecahedronGeometry(s*0.8); break;
+        default: geometry = new THREE.SphereGeometry(s, 16, 16);
+      }
+
+      const pieceColor = 0x999999;
+      const material = new THREE.MeshStandardMaterial({
+        color: pieceColor,
+        emissive: 0x000000,
+        roughness: 0.4,
+        metalness: 0.7
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = { pieceId, type, owner };
+      dynamicGroup.add(mesh);
+
+      const playerColor = PLAYER_COLORS[(owner - 1) % PLAYER_COLORS.length];
+      const ringGeo = new THREE.RingGeometry(s*0.9, s*1.6, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: playerColor,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.set(pos[0], pos[1] - 0.5, pos[2]);
+      ring.rotation.x = -Math.PI / 2;
+      dynamicGroup.add(ring);
+    }
+
+    function updateInkChess(inkData) {
+      console.log('更新墨棋:', inkData);
+      if (!inkData) {
+        inkGroup.visible = false;
+        return;
+      }
+      inkGroup.visible = true;
+      const pos = inkData.position;
+      const size = inkData.size;
+      inkPosition = pos;
+      targetInkSize = size;
+
+      while(inkGroup.children.length > 0) {
+        inkGroup.remove(inkGroup.children[0]);
+      }
+
+      const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+      const sphereMat = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: new THREE.Color(0x220000),
+        roughness: 0.1,
+        metalness: 0.9
+      });
+      inkSphere = new THREE.Mesh(sphereGeo, sphereMat);
+      inkGroup.add(inkSphere);
+
+      let minDist = Infinity;
+      if (latestState && latestState.pieces) {
+        for (const p of latestState.pieces) {
+          if (p.alive) {
+            const dx = p.position[0] - pos[0];
+            const dy = p.position[1] - pos[1];
+            const dz = p.position[2] - pos[2];
+            const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            if (d < minDist) minDist = d;
+          }
+        }
+      }
+      const threshold = 5.0;
+      let t = 0;
+      if (minDist < threshold) {
+        t = 1 - minDist / threshold;
+        t = Math.min(1, t);
+      }
+
+      const white = new THREE.Color(0xffffff);
+      const red = new THREE.Color(0xff0000);
+      const baseColor = white.clone().lerp(red, t);
+
+      const particleCount = 1500;
+      const radius = 0.6;
+      const thickness = 0.15;
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount; i++) {
+        const r = radius * (0.3 + 0.7 * Math.random());
+        const theta = Math.random() * Math.PI * 2;
+        const x = Math.cos(theta) * r;
+        const z = Math.sin(theta) * r;
+        const y = (Math.random() - 0.5) * thickness;
+        positions[i*3] = x;
+        positions[i*3+1] = y;
+        positions[i*3+2] = z;
+
+        const brightness = 0.7 + 0.3 * (r / radius);
+        const c = baseColor.clone().multiplyScalar(brightness);
+        colors[i*3] = c.r;
+        colors[i*3+1] = c.g;
+        colors[i*3+2] = c.b;
+      }
+
+      const particlesGeo = new THREE.BufferGeometry();
+      particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particlesGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const particlesMat = new THREE.PointsMaterial({
+        size: 0.05,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      inkParticles = new THREE.Points(particlesGeo, particlesMat);
+      inkGroup.add(inkParticles);
+
+      currentInkSize = size;
+      inkGroup.scale.set(size/3, size/3, size/3);
+      inkGroup.position.set(pos[0], pos[1], pos[2]);
+    }
+
+    async function fetchAndRender() {
+      try {
+        const res = await fetch('/state');
+        const state = await res.json();
+        latestState = state;
+        clearDynamic();
+
+        currentPlayer = state.current_player || 1;
+        document.getElementById('info').textContent =
+          `墨棋 · 烬寂推演 | 棋盘 ${state.board_size[0]}³ | 回合 ${state.turn} | 玩家 ${currentPlayer} | 墨棋边长 ${state.ink_chess?.size || 3}`;
+
+        if (state.board_bbox) {
+          const [minX, maxX, minY, maxY, minZ, maxZ] = state.board_bbox;
+          const center = [(minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2];
+          controls.target.set(center[0], center[1], center[2]);
+          controls.update();
+        }
+
+        if (state.revealed_regions && state.sub_size) {
+          const subSize = state.sub_size;
+          const chunkSize = state.chunk_size || 9;
+          state.revealed_regions.forEach(region => {
+            const [[cx, cy, cz], sx, sy, sz] = region;
+            const ox = cx * chunkSize + sx * subSize;
+            const oy = cy * chunkSize + sy * subSize;
+            const oz = cz * chunkSize + sz * subSize;
+            const geo = new THREE.BoxGeometry(subSize, subSize, subSize);
+            const mat = new THREE.MeshBasicMaterial({
+              color: 0x446688,
+              transparent: true,
+              opacity: 0.15,
+              wireframe: true
+            });
+            const cube = new THREE.Mesh(geo, mat);
+            cube.position.set(ox + subSize/2, oy + subSize/2, oz + subSize/2);
+            cube.userData.isWireframe = true;
+            dynamicGroup.add(cube);
+          });
+        }
+
+        const maxb = state.max_boundary || [99,99,99];
+        const maxBox = new THREE.Mesh(
+          new THREE.BoxGeometry(maxb[0], maxb[1], maxb[2]),
+          new THREE.MeshBasicMaterial({
+            color: 0x335577,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.09
+          })
+        );
+        maxBox.position.set(maxb[0]/2, maxb[1]/2, maxb[2]/2);
+        maxBox.userData.isWireframe = true;
+        dynamicGroup.add(maxBox);
+
+        state.pieces.forEach(p => createPiece(p.type, p.position, p.owner, p.id, p.can_act, p.rooted));
+
+        state.mines.forEach(m => {
+          if (m.visible) {
+            const mine = new THREE.Mesh(
+              new THREE.SphereGeometry(0.3, 8, 8),
+              new THREE.MeshStandardMaterial({ color: MINES_COLOR, emissive: new THREE.Color(0x330000) })
+            );
+            mine.position.set(m.position[0], m.position[1], m.position[2]);
+            dynamicGroup.add(mine);
+          }
+        });
+
+        state.light_zones.forEach(z => createZone(z.center, z.radius, 0xffff00, 0.065));
+        state.safe_zones.forEach(z => createZone(z.center, z.radius, 0x00ff00, 0.035));
+
+        if (state.ink_chess) {
+          updateInkChess(state.ink_chess);
+        } else {
+          inkGroup.visible = false;
+        }
+
+        if (selectedPieceId) {
+          const selected = state.pieces.find(p => p.id === selectedPieceId);
+          if (selected) {
+            const ringGeo = new THREE.TorusGeometry(0.57, 0.053, 16, 34);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(selected.position[0], selected.position[1], selected.position[2]);
+            ring.userData = { isHighlight: true };
+            dynamicGroup.add(ring);
+          } else {
+            selectedPieceId = null; awaitingConfirm = false; removeTargetMarker();
+          }
+        }
+
+        if (awaitingConfirm && selectedPieceId && actionMode !== 'snipe' && actionMode !== 'produce') {
+          createTargetMarker(cursorPos);
+        } else {
+          removeTargetMarker();
+        }
+
+        if (state.board_bbox) {
+          const [minX, maxX, minY, maxY, minZ, maxZ] = state.board_bbox;
+          cursorPos[0] = Math.max(minX, Math.min(maxX, cursorPos[0]));
+          cursorPos[1] = Math.max(minY, Math.min(maxY, cursorPos[1]));
+          cursorPos[2] = Math.max(minZ, Math.min(maxZ, cursorPos[2]));
+        }
+
+        if (state.game_over && !gameOverHandled) {
+          gameOverHandled = true;
+          document.getElementById('victory-message').textContent = `胜利者：${state.winner || '平局'}`;
+          document.getElementById('victory-overlay').classList.add('active');
+        }
+      } catch(e) { console.error('获取状态失败:', e); }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      if (inkGroup.visible) {
+        currentInkSize += (targetInkSize - currentInkSize) * 0.1;
+        if (Math.abs(currentInkSize - targetInkSize) < 0.01) {
+          currentInkSize = targetInkSize;
+        }
+        const scale = currentInkSize / 3;
+        inkGroup.scale.set(scale, scale, scale);
+        if (inkParticles) {
+          inkParticles.rotation.y += 0.005;
+          inkParticles.rotation.x = Math.sin(Date.now() * 0.001) * 0.02;
+        }
+      }
+
+      // 线框脉冲
+      const period = 5000;
+      const t = (Date.now() % period) / period;
+      let pulse = 0;
+      const maxOpacity = 0.2;
+      const riseStart = 0, riseEnd = 0.1, holdStart = 0.1, holdEnd = 0.3, fallStart = 0.3, fallEnd = 0.4;
+      if (t >= riseStart && t < riseEnd) {
+        const progress = (t - riseStart) / (riseEnd - riseStart);
+        pulse = progress * maxOpacity;
+      } else if (t >= holdStart && t < holdEnd) {
+        pulse = maxOpacity;
+      } else if (t >= fallStart && t < fallEnd) {
+        const progress = (t - fallStart) / (fallEnd - fallStart);
+        pulse = maxOpacity * (1 - progress);
+      } else {
+        pulse = 0;
+      }
+      dynamicGroup.children.forEach(child => {
+        if (child.userData && child.userData.isWireframe && child.material) {
+          child.material.opacity = pulse;
+        }
+      });
+
+      cursorCube.position.set(cursorPos[0], cursorPos[1], cursorPos[2]);
+
+      if (selectedPieceId && latestState && !gameOverHandled) {
+        const piece = latestState.pieces.find(p => p.id === selectedPieceId);
+        if (piece) {
+          const dx = cursorPos[0] - piece.position[0];
+          const dy = cursorPos[1] - piece.position[1];
+          const dz = cursorPos[2] - piece.position[2];
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz).toFixed(2);
+          cursorLabelDiv.textContent = `(${cursorPos[0]},${cursorPos[1]},${cursorPos[2]}) 距离 ${dist}`;
+          document.getElementById('coord-preview').textContent =
+            `选中: ${piece.type} (${piece.position.join(',')}) → 目标: (${cursorPos.join(',')}) 距离 ${dist}`;
+
+          if (actionMode === 'snipe') setStatus('切割模式：移动光标到目标位置，按空格执行切割');
+          else if (actionMode === 'produce') {
+            const unitName = selectedUnitType ? UNIT_NAME_MAP[selectedUnitType] : '未选择';
+            setStatus(`生产模式：按 1-6 选择兵种 [当前: ${unitName}]，移动光标到相邻格，按空格生产`);
+          } else if (awaitingConfirm) {
+            const modeText = { 'move': '移动', 'lay_mine': '布雷', 'phase_jump': '相位跃迁', 'fleet_transfer': '舰队运载', 'expand': '空间拓荒' }[actionMode] || '操作';
+            setStatus(`确认操作: ${modeText} → 按空格执行`);
+          } else {
+            setStatus(`选中 ${piece.type}，按空格进入目标选择`);
+          }
+        } else {
+          cursorLabelDiv.textContent = `(${cursorPos[0]},${cursorPos[1]},${cursorPos[2]})`;
+          document.getElementById('coord-preview').textContent = '';
+          setStatus('就绪');
+        }
+      } else {
+        cursorLabelDiv.textContent = `(${cursorPos[0]},${cursorPos[1]},${cursorPos[2]})`;
+        document.getElementById('coord-preview').textContent = '';
+        setStatus('就绪');
+      }
+
+      dynamicGroup.children.forEach(child => {
+        if (child.userData && child.userData.isHighlight) child.quaternion.copy(camera.quaternion);
+      });
+
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
+
+    function createZone(center, radius, color, opacity) {
+      const size = radius * 2 + 1;
+      const geo = new THREE.BoxGeometry(size, size, size);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, wireframe: true, depthWrite: false });
+      const cube = new THREE.Mesh(geo, mat);
+      cube.position.set(center[0], center[1], center[2]);
+      dynamicGroup.add(cube);
+      return cube;
+    }
+
+    fetchAndRender();
+    setInterval(fetchAndRender, 1500);
+    animate();
+
+    renderer.domElement.addEventListener('click', (event) => {
+      if (gameOverHandled || awaitingConfirm) return;
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(dynamicGroup.children, true);
+      let found = null;
+      for (const intersect of intersects) {
+        let obj = intersect.object;
+        while (obj) {
+          if (obj.userData && obj.userData.pieceId) { found = obj.userData; break; }
+          obj = obj.parent;
+        }
+        if (found) break;
+      }
+      if (found) {
+        if (found.owner === currentPlayer) {
+          selectedPieceId = found.pieceId;
+          const piece = latestState.pieces.find(p => p.id === found.pieceId);
+          if (piece) cursorPos = [...piece.position];
+          actionMode = 'move'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog(`选中 ${found.type} (${found.pieceId})`);
+        } else {
+          addLog('这是敌方棋子，无法选择');
+        }
+      } else {
+        selectedPieceId = null; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+        addLog('已取消选中');
+      }
+      fetchAndRender();
+    });
+
+    window.addEventListener('keydown', async (e) => {
+      if (gameOverHandled) { e.preventDefault(); return; }
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      function clampCursor(bbox) {
+        if (!bbox) return;
+        const [minX, maxX, minY, maxY, minZ, maxZ] = bbox;
+        cursorPos[0] = Math.max(minX, Math.min(maxX, cursorPos[0]));
+        cursorPos[1] = Math.max(minY, Math.min(maxY, cursorPos[1]));
+        cursorPos[2] = Math.max(minZ, Math.min(maxZ, cursorPos[2]));
+      }
+
+      if (e.key >= '1' && e.key <= '6' && actionMode === 'produce') {
+        e.preventDefault();
+        selectedUnitType = UNIT_TYPE_MAP[e.key];
+        addLog(`选择兵种: ${UNIT_NAME_MAP[selectedUnitType]}`);
+        return;
+      }
+
+      switch(e.key) {
+        case 'ArrowUp': if (latestState) { const b = latestState.board_bbox; cursorPos[1] += 1; if (b) clampCursor(b); } break;
+        case 'ArrowDown': if (latestState) { const b = latestState.board_bbox; cursorPos[1] -= 1; if (b) clampCursor(b); } break;
+        case 'ArrowLeft': if (latestState) { const b = latestState.board_bbox; cursorPos[0] -= 1; if (b) clampCursor(b); } break;
+        case 'ArrowRight': if (latestState) { const b = latestState.board_bbox; cursorPos[0] += 1; if (b) clampCursor(b); } break;
+        case ',': if (latestState) { const b = latestState.board_bbox; cursorPos[2] -= 1; if (b) clampCursor(b); } break;
+        case '.': if (latestState) { const b = latestState.board_bbox; cursorPos[2] += 1; if (b) clampCursor(b); } break;
+
+        case 'Escape':
+          e.preventDefault();
+          selectedPieceId = null; selectedUnitType = null; awaitingConfirm = false; actionMode = 'move'; removeTargetMarker();
+          addLog('已取消操作'); fetchAndRender(); break;
+
+        case ' ':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择棋子'); return; }
+          if (!latestState) return;
+
+          if (actionMode === 'snipe') {
+            const r = await sendAction('move', { piece_id: selectedPieceId, target: cursorPos, mode: 'snipe' });
+            selectedPieceId = null; actionMode = 'move'; fetchAndRender(); break;
+          }
+
+          if (actionMode === 'produce') {
+            if (!selectedUnitType) { addLog('请先按 1-6 选择兵种'); return; }
+            const piece = latestState.pieces.find(p => p.id === selectedPieceId);
+            if (!piece) { addLog('棋子不存在'); return; }
+            const dx = Math.abs(cursorPos[0] - piece.position[0]);
+            const dy = Math.abs(cursorPos[1] - piece.position[1]);
+            const dz = Math.abs(cursorPos[2] - piece.position[2]);
+            if (dx + dy + dz !== 1) { addLog('生产目标必须相邻'); return; }
+            await sendAction('seeder_produce', { piece_id: selectedPieceId, target: cursorPos, unit_type: selectedUnitType });
+            selectedPieceId = null; selectedUnitType = null; actionMode = 'move'; fetchAndRender(); break;
+          }
+
+          if (!awaitingConfirm) {
+            awaitingConfirm = true; createTargetMarker(cursorPos); fetchAndRender(); return;
+          }
+
+          awaitingConfirm = false; removeTargetMarker();
+          let result;
+          switch (actionMode) {
+            case 'move': result = await sendAction('move', { piece_id: selectedPieceId, target: cursorPos }); break;
+            case 'lay_mine': result = await sendAction('lay_mine', { piece_id: selectedPieceId, target: cursorPos }); break;
+            case 'phase_jump': {
+              const core = latestState.pieces.find(p => p.type === 'core' && p.owner === currentPlayer);
+              if (core) result = await sendAction('phase_jump', { piece_id: selectedPieceId, core_id: core.id });
+              else { addLog('找不到核心'); result = false; }
+              break;
+            }
+            case 'fleet_transfer':
+              result = await sendAction('fleet_transfer', { piece_id: selectedPieceId, target: cursorPos, passengers: window._fleetPassengers || [] });
+              break;
+            case 'expand': result = await sendAction('expand', { piece_id: selectedPieceId, target: cursorPos }); break;
+            default: addLog('未知操作模式'); return;
+          }
+          selectedPieceId = null; fetchAndRender(); break;
+
+        case 'f': case 'F':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择工兵'); return; }
+          const pMine = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pMine || pMine.type !== 'engineer') { addLog('只有工兵可以布雷'); return; }
+          actionMode = 'lay_mine'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog('布雷模式：移动光标到目标位置，按空格确认'); break;
+
+        case 'g': case 'G':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择车'); return; }
+          const pJump = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pJump || pJump.type !== 'rook') { addLog('只有车可以相位跃迁'); return; }
+          actionMode = 'phase_jump'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog('相位跃迁模式：移动光标，按空格执行'); break;
+
+        case 't': case 'T':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择车'); return; }
+          const pTransfer = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pTransfer || pTransfer.type !== 'rook') { addLog('只有车可以运载'); return; }
+          const rPos = pTransfer.position;
+          const passengers = latestState.pieces
+            .filter(p => p.owner === currentPlayer && p.id !== selectedPieceId)
+            .filter(p => Math.max(Math.abs(p.position[0]-rPos[0]), Math.abs(p.position[1]-rPos[1]), Math.abs(p.position[2]-rPos[2])) <= 1)
+            .map(p => p.id);
+          if (passengers.length === 0) { addLog('没有相邻棋子可携带'); return; }
+          actionMode = 'fleet_transfer'; window._fleetPassengers = passengers; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog(`运载模式：携带 ${passengers.length} 个棋子，按空格执行`); break;
+
+        case 'h': case 'H':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择马'); return; }
+          const pExpand = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pExpand || pExpand.type !== 'knight') { addLog('只有马可以拓荒'); return; }
+          actionMode = 'expand'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog('拓荒模式：移动光标到迷雾边缘，按空格执行'); break;
+
+        case 'k': case 'K':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择兵'); return; }
+          const pSnipe = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pSnipe || pSnipe.type !== 'scout') { addLog('只有兵可以切割'); return; }
+          actionMode = 'snipe'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog('切割模式：移动光标到目标位置，按空格执行'); break;
+
+        case 'p': case 'P':
+          e.preventDefault();
+          if (!selectedPieceId) { addLog('请先选择种兵'); return; }
+          const pProduce = latestState?.pieces.find(p => p.id === selectedPieceId);
+          if (!pProduce || pProduce.type !== 'seeder') { addLog('只有种兵可以生产'); return; }
+          actionMode = 'produce'; selectedUnitType = null; awaitingConfirm = false; removeTargetMarker();
+          addLog('生产模式：按 1-6 选兵种，移动光标到相邻格，按空格生产'); break;
+
+        case 'z': case 'Z':
+          if (e.ctrlKey || e.metaKey) e.preventDefault();
+          addLog('执行悔棋...');
+          if (await sendAction('undo', {})) fetchAndRender();
+          break;
+
+        case 's': case 'S':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const name = prompt('存档名称：') || 'default';
+            try {
+              const r = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+              const d = await r.json();
+              addLog(d.message);
+            } catch(err) { addLog('保存失败：' + err); }
+          }
+          break;
+
+        case 'l': case 'L':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            try {
+              const r = await fetch('/list_saves');
+              const d = await r.json();
+              if (d.success && d.saves.length > 0) {
+                const name = prompt(`请输入存档名：\n可用：${d.saves.join('\n')}`);
+                if (name && d.saves.includes(name)) {
+                  const lr = await fetch('/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                  });
+                  const ld = await lr.json();
+                  if (ld.success) {
+                    selectedPieceId = null;
+                    awaitingConfirm = false;
+                    actionMode = 'move';
+                    selectedUnitType = null;
+                    if (window.removeTargetMarker) window.removeTargetMarker();
+                    if (!window.gameInitialized) {
+                      document.getElementById('setup-piece-config').style.display = 'none';
+                      document.getElementById('setup-player-count').style.display = 'none';
+                      document.getElementById('game-container').style.display = 'block';
+                      document.getElementById('info').style.display = 'block';
+                      document.getElementById('status').style.display = 'block';
+                      document.getElementById('coord-preview').style.display = 'block';
+                      document.getElementById('log').style.display = 'block';
+                      document.getElementById('help').style.display = 'block';
+                      initGame();
+                    } else {
+                      if (window.fetchAndRender) window.fetchAndRender();
+                    }
+                    addLog('存档加载成功');
+                  } else {
+                    addLog(ld.message);
+                  }
+                } else if (name) {
+                  addLog('存档不存在');
+                }
+              } else {
+                addLog('没有存档文件');
+              }
+            } catch(err) {
+              addLog('获取存档列表失败：' + err);
+            }
+          }
+          break;
+      }
+    });
+
+    async function sendAction(action, params) {
+      try {
+        const res = await fetch('/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player: currentPlayer, action, ...params })
+        });
+        const data = await res.json();
+        addLog(data.message || (data.success ? '成功' : '失败'));
+        return data.success;
+      } catch(err) { addLog('请求失败: ' + err); return false; }
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.removeTargetMarker = removeTargetMarker;
+    window.fetchAndRender = fetchAndRender;
+  }
+</script>
+</body>
+</html>
