@@ -1,5 +1,5 @@
 Mochess · 烬寂推演
-English
+
 Introduction
 Mochess is a 3D turn-based strategy board game designed for both human play and multi-agent reinforcement learning research. It features deterministic rules, high branching factor, fog-of-war, and a dynamic "Ink Chess" that grows and devours pieces. The game is implemented with a pure Python backend (no third-party libraries) and a Three.js 3D frontend, making it lightweight and portable. It is open-sourced under GPLv3.
 
@@ -29,7 +29,7 @@ Self-play training pipelines with MAPPO / QMIX examples.
 
 See the dev-rl branch for ongoing development.
 
-中文
+
 介绍
 墨棋（Mochess）是一款 3D 回合制策略棋盘游戏，适合人类娱乐，也专为多智能体强化学习教学而设计。它拥有确定的规则、极高的分支因子、战争迷雾以及会动态扩张并吞噬棋子的“墨棋”机制。后端采用纯 Python（无需任何第三方库），前端基于 Three.js 构建 3D 可视化，轻量且易于分发。本项目遵循 GPLv3 开源协议。
 
@@ -58,9 +58,3 @@ gym.Env 接口封装，方便接入常见算法库。
 自博弈训练示例，支持 MAPPO / QMIX 等多智能体算法。
 
 详细进展请关注 dev-rl 分支。
-
-License
-This project is licensed under the GPLv3 – see the LICENSE file for details.
-
-Note: Gameplay mechanics and installation instructions are omitted here; you can add them as you have prepared.
-
