@@ -1,19 +1,66 @@
-# moqi
-moqi— an experimental 3D , hazards, and an expandable board. A question, not an answer — playable sandbox, basic AI, room to grow.
-moqi(墨棋 / Ink Chess) — a humble description:
+Mochess · 烬寂推演
+English
+Introduction
+Mochess is a 3D turn-based strategy board game designed for both human play and multi-agent reinforcement learning research. It features deterministic rules, high branching factor, fog-of-war, and a dynamic "Ink Chess" that grows and devours pieces. The game is implemented with a pure Python backend (no third-party libraries) and a Three.js 3D frontend, making it lightweight and portable. It is open-sourced under GPLv3.
 
-moqi("ink chess," 墨棋) is an experimental prototype of a 3D asymmetric chess-like environment. It asks a simple but open-ended question: What happens when you take traditional board games — with their perfect information, symmetric rules, and flat grids — and replace them with a 3D space, fog of war, asymmetric unit types, an expandable map, and a living hazard (the "Ink Chess" itself) that drifts, grows, and devours pieces?
+Features
+6 unit types: Scout (snipe), Rook (phase jump & fleet transport), Knight (expand fog-of-war), Cannon (attack over obstacles), Engineer (lay mines), Seeder (produce new units).
 
-Right now, moqiis a playable sandbox, not a finished benchmark. The rule engine (logic/engine.py) is fully implemented — six unit types (scout, rook, knight, cannon, engineer, seeder) plus a core per player, fog-of-war via chunked lazy loading, "mist-edge" expansion by knights, phase-jump and fleet transfer by rooks, mines, and the ink sphere as a gravity-driven environmental hazard. The frontend (static/index.html) runs on Three.js with interactive camera, piece selection, hotkeys, undo, save/load, and a victory screen. You can play 2–10 players, human or simple AI.
+Fog-of-war: The map expands only when a Knight explores, revealing 3x3x3 areas. This introduces the classic exploration-exploitation trade-off.
 
-But the AI is deliberately kept basic — random moves plus a handcrafted greedy scorer — and no reinforcement learning training or balance tuning has been done yet. So calling it a "multi-agent benchmark" would be premature.
+Dynamic Ink Chess: A black sphere that moves toward clusters of pieces, grows in size, and devours everything in its radius. It adds a constant threat and emergent complexity.
 
-So what is moqigood for, as it stands?
+Built-in heuristic AI: A rule-based opponent that evaluates moves by capturing value, safety, and ink threat, ready for immediate play.
 
-Game design exploration: Test how asymmetric abilities, 3D movement, and environmental hazards interact in a concrete, runnable system.
+Save/Load & Undo: Full game state serialization and history rollback.
 
-Teaching tool: A self-contained example of a turn-based multiplayer engine + HTTP server + Three.js frontend, compact enough to read through in an afternoon.
+Pure Python + Three.js: No external dependencies for the backend; frontend can run locally without internet.
 
-Research starting point: If you're interested in multi-agent RL in partially observable, procedurally expanding environments, moqicould become a testbed — once proper interfaces (e.g., Gymnasium) and stronger agents are added.
+Reinforcement Learning (Work in Progress)
+Mochess is evolving into a standard RL environment. Planned features:
 
-The real contribution here is the question, not the answer. We hope this prototype invites others to explore the same space, improve the AI, refine the rules, and maybe one day turn moqiinto something worthy of the word "benchmark." Until then, it's an honest attempt to push beyond traditional chess variants — warts and all.
+gym.Env API wrapper for easy integration.
+
+Flat discrete action space with invalid-action masking.
+
+State encoder using PointNet-like aggregation over piece coordinates.
+
+Self-play training pipelines with MAPPO / QMIX examples.
+
+See the dev-rl branch for ongoing development.
+
+中文
+介绍
+墨棋（Mochess）是一款 3D 回合制策略棋盘游戏，适合人类娱乐，也专为多智能体强化学习教学而设计。它拥有确定的规则、极高的分支因子、战争迷雾以及会动态扩张并吞噬棋子的“墨棋”机制。后端采用纯 Python（无需任何第三方库），前端基于 Three.js 构建 3D 可视化，轻量且易于分发。本项目遵循 GPLv3 开源协议。
+
+特性
+6 种兵种：兵（隔空切割）、车（相位跃迁 & 舰队运载）、马（拓荒揭开迷雾）、炮（隔子攻击）、工兵（布雷）、种兵（生产新单位）。
+
+战争迷雾：只有马可以拓荒，逐步揭示 3×3×3 的新区域，带来探索与利用的经典决策困境。
+
+动态墨棋：一个黑色球体会自动追踪棋子密集区，随时间增大并吞噬范围内的一切，形成持续的紧迫感和复杂局势。
+
+内置启发式 AI：基于贪心评分（吃子、安全、墨棋威胁）的电脑对手，开箱即玩。
+
+存档 / 读档 & 悔棋：完整的游戏状态序列化与历史回退功能。
+
+纯 Python + Three.js：后端零依赖，前端可离线运行，无需联网。
+
+强化学习（开发中）
+墨棋正在向标准强化学习环境演进，计划提供：
+
+gym.Env 接口封装，方便接入常见算法库。
+
+扁平化的离散动作空间，配合非法动作掩码。
+
+基于棋子坐标聚合的 PointNet 风格状态编码器。
+
+自博弈训练示例，支持 MAPPO / QMIX 等多智能体算法。
+
+详细进展请关注 dev-rl 分支。
+
+License
+This project is licensed under the GPLv3 – see the LICENSE file for details.
+
+Note: Gameplay mechanics and installation instructions are omitted here; you can add them as you have prepared.
+
